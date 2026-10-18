@@ -114,5 +114,3 @@ NoteEzy is a powerful and intuitive real-time collaborative editor designed to b
 ## Contributing
 
 Contributions are welcome! Please feel free to open an issue or submit a pull request.
-
-
