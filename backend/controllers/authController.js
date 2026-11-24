@@ -3,26 +3,31 @@ import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 import sendEmail from "../utils/sendEmail.js";
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required');
+
 // Function to generate a JWT token
 export const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+  return jwt.sign({ userId }, JWT_SECRET, {
     expiresIn: "1d",
   });
 };
 
 // Set cookie options
-const cookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "None",
-  maxAge: 24 * 60 * 60 * 1000, // 1 day
+const getCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "None" : "Lax",
+    maxAge: 24 * 60 * 60 * 1000, // 1 day
+  };
 };
 
 // Controller for user signup
 export const signup = async (req, res) => {
   const { name, email, password } = req.body;
 
-  // Validate input fields
   if (!email || !password || !name) {
     return res.status(400).json({ msg: "All fields are required." });
   }
@@ -100,7 +105,7 @@ export const verifyOTP = async (req, res) => {
     delete userWithoutPassword.password;
 
     res
-      .cookie("token", token, cookieOptions)
+      .cookie("token", token, getCookieOptions())
       .status(200)
       .json({ user: userWithoutPassword });
   } catch (err) {
@@ -145,7 +150,7 @@ export const login = async (req, res) => {
     const userWithoutPassword = user.toObject();
     delete userWithoutPassword.password;
 
-    res.cookie("token", token, cookieOptions).status(200).json({ user: userWithoutPassword });
+    res.cookie("token", token, getCookieOptions()).status(200).json({ user: userWithoutPassword });
   } catch (err) {
     console.error("Error in login route: ", err.message);
     res.status(500).json({ msg: "Server error" });
@@ -154,10 +159,11 @@ export const login = async (req, res) => {
 
 // Controller for user logout
 export const logout = (req, res) => {
+  const isProduction = process.env.NODE_ENV === "production";
   res.clearCookie("token", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "None",
+    secure: isProduction,
+    sameSite: isProduction ? "None" : "Lax",
   });
   res.status(200).json({ msg: "Logged out" });
 };
@@ -171,7 +177,7 @@ export const protectRoute = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId);
 
     if (!user) {
